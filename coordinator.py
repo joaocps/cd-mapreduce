@@ -18,8 +18,10 @@ class Coordinator(object):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.logger = logging.getLogger('Coordinator')
 
+        self.ready_workers = []
 
-    def main(args):
+
+    def main(self, args):
 
         datastore = []
         with args.file as f:
@@ -36,6 +38,10 @@ class Coordinator(object):
                 logger.debug('Blob: %s', blob)
                 datastore.append(blob)
 
+        # self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # self.socket.bind(("localhost", args.port))
+        # self.socket.listen(5)
+
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(("localhost", args.port))
@@ -50,22 +56,19 @@ class Coordinator(object):
                 msg = json.loads(data)
                 if msg["task"] == "register":
                     print("NEW WORKER HERE")
+                    print("Worker id: " + str(msg["id"]))
                     # TODO
                 if msg["task"] == "map_reply":
-                    print("NEW WORKER HERE")
+                    print("NEW MAP_REPLY HERE")
                     # TODO
                 if msg["task"] == "reduce_reply":
-                    print("NEW WORKER HERE")
+                    print("NEW REDUCE_REPLY HERE")
                     # TODO
             if not data:
                 break
             message_chunks.append(data)
 
         clientsocket.close()
-
-
-
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='MapReduce Coordinator')
@@ -74,4 +77,4 @@ if __name__ == '__main__':
     parser.add_argument('-b', dest='blob_size', type=int, help='blob size', default=1024)
     args = parser.parse_args()
 
-    Coordinator.main(args)
+    Coordinator().main(args)
