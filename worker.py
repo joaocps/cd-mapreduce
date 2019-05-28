@@ -5,6 +5,7 @@ import argparse
 import os
 import socket
 from threading import Thread
+import string
 
 # socket.listen(backlog) Listen for connections made to the socket.
 # The backlog argument specifies the maximum number of queued connections and should be at least 1; the maximum value is system-dependent (usually 5).
@@ -63,6 +64,52 @@ class Worker(object):
             self.sock.close()
 
 
+class Map(object):
+    def __init__(self, dic):
+        self.p = dic["blob"]
+        self.lista = []
+
+    def map(self):
+        punct = list(string.punctuation)
+
+        frase = self.p.split()
+        #print(frase)
+
+        lista_f = []
+        for palavra in frase:
+            for c in punct:
+                palavra = palavra.strip(c)
+                #print(palavra)
+            lista_f.append(palavra)
+        #print(lista_f)
+        for w in lista_f:
+            self.lista.append((w, 1))
+        return {"task": "map_reply", "value": self.lista}
+
+class Reduce(object):
+    def __init__(self, dic):
+        self.listas = dic["value"]
+        self.final = []
+        self.words = []
+    def reduce(self):
+        for l in self.listas:
+            #print(l)
+            for w,nr in l:
+                #print("\nw:" + w + "\nnr: " + str(nr) )
+                if w not in self.words:
+                    self.words.append(w)
+                    self.final.append((w, nr))
+                else:
+                    #print("Encontrei\n " + w + " -> " + str(nr))
+                    for i in self.final:
+                        if i[0] == w:
+                            self.final.remove((w,i[1]))
+                            nr = nr + i[1]
+                    self.final.append((w, nr))
+
+        #print(self.words)
+        #print(self.final)
+        return {"task": "reduce_reply", "value": self.final}
 
 
 if __name__ == '__main__':
