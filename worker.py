@@ -17,11 +17,24 @@ logger = logging.getLogger('worker')
 
 class Worker(object):
     def __init__(self):
+
+        # -----------
+        # Set Worker pid, port and status
+        # -----------
+
         self.id = os.getpid()
         self.port = 8081
         self.worker_status = "READY"
 
+        # -----------
+        # Worker Socket
+        # -----------
+
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        # -----------
+        # Worker register msg with pid
+        # -----------
 
         self.register_msg = json.dumps({
             "task": "register",
@@ -49,28 +62,44 @@ class Worker(object):
                     print("REDUCE")
                     # TODO: HANDLE REDUCE REQUEST
 
+    def handle_map_request(self, blob):
+
+        lista = []
+        punct = list(string.punctuation)
+
+        frase = blob.split()
+
+        lista_f = []
+        for palavra in frase:
+            for c in punct:
+                palavra = palavra.strip(c)
+            lista_f.append(palavra)
+
+        for w in lista_f:
+            lista.append((w, 1))
+        print(lista)
+
+        return json.dumps(dict(task="map_reply", value=lista))
+
     def main(self, args):
         logger.debug('Connecting to %s:%d', args.hostname, args.port)
 
         try:
             self.sock.connect((args.hostname, args.port))
-
-            # process_messages = Thread(target=self.jobs_to_do, args=())
-            # process_messages.start()
-
             self.sock.sendall(self.register_msg.encode("utf-8"))
 
             while True:
 
                 # self.sock.recv(1024)
-                json_msg = self.sock.recv(5000).decode("utf-8")
+                json_msg = self.sock.recv(8192).decode("utf-8")
 
                 if json_msg:
                     msg = json.loads(json_msg)
                     if msg["task"] == "register":
                         print("REGISTER DETECTED")
                     if msg["task"] == "map_request":
-                        print(msg)
+                        map_reply = self.handle_map_request(msg["blob"])
+                        self.sock.sendall(map_reply.encode("utf-8"))
                         # TODO: HANDLE MAP REQUEST
                     if msg["task"] == "reduce_request":
                         print("REDUCE")
