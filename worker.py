@@ -10,6 +10,8 @@ import string
 # socket.listen(backlog) Listen for connections made to the socket.
 # The backlog argument specifies the maximum number of queued connections and should be at least 1; the maximum value is system-dependent (usually 5).
 
+#
+
 logging.basicConfig(level=logging.DEBUG,format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',datefmt='%m-%d %H:%M:%S')
 logger = logging.getLogger('worker')
 
@@ -36,7 +38,7 @@ class Worker(object):
 
         while True:
             conn = workflow_sock.accept()
-            json_msg = conn[0].recv(1024).decode("utf-8")
+            json_msg = conn[0].recv().decode("utf-8")
 
             if json_msg:
                 msg = json.loads(json_msg)
@@ -53,10 +55,26 @@ class Worker(object):
         try:
             self.sock.connect((args.hostname, args.port))
 
-            process_messages = Thread(target=self.jobs_to_do, args=())
-            process_messages.start()
+            # process_messages = Thread(target=self.jobs_to_do, args=())
+            # process_messages.start()
 
             self.sock.sendall(self.register_msg.encode("utf-8"))
+
+            while True:
+
+                # self.sock.recv(1024)
+                json_msg = self.sock.recv(5000).decode("utf-8")
+
+                if json_msg:
+                    msg = json.loads(json_msg)
+                    if msg["task"] == "register":
+                        print("REGISTER DETECTED")
+                    if msg["task"] == "map_request":
+                        print(msg)
+                        # TODO: HANDLE MAP REQUEST
+                    if msg["task"] == "reduce_request":
+                        print("REDUCE")
+                        # TODO: HANDLE REDUCE REQUEST
 
         except socket.error:
             print("Error to connect with Coordinator")
