@@ -1,18 +1,15 @@
 # coding: utf-8
+
 import json
 import logging
 import argparse
 import os
 import socket
-from threading import Thread
 import string
 
-# socket.listen(backlog) Listen for connections made to the socket.
-# The backlog argument specifies the maximum number of queued connections and should be at least 1; the maximum value is system-dependent (usually 5).
 
-#
-
-logging.basicConfig(level=logging.DEBUG,format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',datefmt='%m-%d %H:%M:%S')
+logging.basicConfig(level=logging.DEBUG,format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M:%S')
 logger = logging.getLogger('worker')
 
 class Worker(object):
@@ -41,27 +38,6 @@ class Worker(object):
             "id": self.id
         })
 
-    def jobs_to_do(self):
-
-        workflow_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        workflow_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        workflow_sock.bind((args.hostname, args.port))
-
-        workflow_sock.listen(5)
-
-        while True:
-            conn = workflow_sock.accept()
-            json_msg = conn[0].recv().decode("utf-8")
-
-            if json_msg:
-                msg = json.loads(json_msg)
-                if msg["task"] == "map_request":
-                    print("MAP")
-                    # TODO: HANDLE MAP REQUEST
-                if msg["task"] == "reduce_request":
-                    print("REDUCE")
-                    # TODO: HANDLE REDUCE REQUEST
-
     def handle_map_request(self, blob):
 
         lista = []
@@ -81,6 +57,24 @@ class Worker(object):
 
         return json.dumps(dict(task="map_reply", value=lista))
 
+    def handle_reduce_request(self, value):
+
+        reduced_list = []
+        words = []
+
+        for w, nr in value:
+            if w.lower() not in words:
+                words.append(w.lower())
+                reduced_list.append((w.lower(), nr))
+            else:
+                for i in reduced_list:
+                    if i[0].lower() == w.lower():
+                        reduced_list.remove((w.lower(), i[1]))
+                        nr = nr + i[1]
+                reduced_list.append((w.lower(), nr))
+
+        return json.dumps(dict(task="reduce_reply", value=reduced_list))
+
     def main(self, args):
         logger.debug('Connecting to %s:%d', args.hostname, args.port)
 
@@ -90,7 +84,6 @@ class Worker(object):
 
             while True:
 
-                # self.sock.recv(1024)
                 json_msg = self.sock.recv(8192).decode("utf-8")
 
                 if json_msg:
@@ -100,10 +93,10 @@ class Worker(object):
                     if msg["task"] == "map_request":
                         map_reply = self.handle_map_request(msg["blob"])
                         self.sock.sendall(map_reply.encode("utf-8"))
-                        # TODO: HANDLE MAP REQUEST
                     if msg["task"] == "reduce_request":
-                        print("REDUCE")
-                        # TODO: HANDLE REDUCE REQUEST
+                        reduce_reply = self.handle_reduce_request(msg["value"])
+                        print(reduce_reply)
+                        self.sock.sendall(reduce_reply.encode("utf-8"))
 
         except socket.error:
             print("Error to connect with Coordinator")

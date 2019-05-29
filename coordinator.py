@@ -51,18 +51,24 @@ class Coordinator(object):
         clientsocket.sendall(map_req.encode("utf-8"))
 
         while True:
-            clientsocket.settimeout(5)
+            # clientsocket.settimeout(5)
             new_msg = clientsocket.recv(8192).decode("utf-8")
+
             if new_msg:
                 msg = json.loads(new_msg)
                 if msg["task"] == "map_reply":
                     self.map_responses.put(msg["value"])
                     map_req = json.dumps(dict(task="map_request", blob=self.datastore_q.get()))
                     clientsocket.sendall(map_req.encode("utf-8"))
+                    if self.datastore_q.empty():
+                        reduce_req = json.dumps(dict(task="reduce_request", value=self.map_responses.get()))
+                        clientsocket.sendall(reduce_req.encode("utf-8"))
+                        if msg["task"] == "reduce_reply":
+                            print("IM HERE")
 
-            # print(list(self.map_responses.queue))
-            if self.datastore_q.empty() :
-                print(list(self.map_responses.queue))
+
+            # if self.datastore_q.empty():
+            #     print(list(self.map_responses.queue))
         # clientsocket.sendall(map_req.encode("utf-8"))
 
     def main(self, args):
@@ -96,31 +102,6 @@ class Coordinator(object):
                 process_messages = threading.Thread(target=self.jobs_to_do, args=(clientsocket,))
                 process_messages.start()
 
-        # sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        # sock.bind(("localhost", args.port))
-        # sock.listen(5)
-
-        # message_chunks = []
-        # while True:
-        #     data = clientsocket.recv(1024).decode("utf-8")
-        #     if data:
-        #         msg = json.loads(data)
-        #         if msg["task"] == "register":
-        #             print("NEW WORKER HERE")
-        #             print("Worker id: " + str(msg["id"]))
-        #             # TODO
-        #         if msg["task"] == "map_reply":
-        #             print("NEW MAP_REPLY HERE")
-        #             # TODO
-        #         if msg["task"] == "reduce_reply":
-        #             print("NEW REDUCE_REPLY HERE")
-        #             # TODO
-        #     if not data:
-        #         break
-        #     message_chunks.append(data)
-        #
-        # clientsocket.close()
 
 
 if __name__ == '__main__':
