@@ -5,6 +5,7 @@ import logging
 import argparse
 import socket
 import threading
+import time
 from queue import Queue
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
@@ -16,32 +17,79 @@ class Coordinator(object):
 
     def __init__(self):
 
+        # -----------
+        # Coordinator Socket
+        # -----------
+
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.logger = logging.getLogger('Coordinator')
+
+        # -----------
+        # Datastore of initial blobs
+        # -----------
 
         self.datastore = []
         self.datastore_q = Queue()
 
+        # -----------
+        # Queue of Map responses from worker
+        # -----------
+
+        self.map_responses = Queue()
+
+        # -----------
+        # Queue of Reduce responses from worker
+        # -----------
+
+        self.reduce_responses = Queue()
+
+        # -----------
+        # Not used Variables but maybe usefull later
+        # -----------
+
         self.ready_workers = []
-        self.work = True
-
-        self.register_msg = json.dumps({
-            "task": "register",
-            "id": 2
-        })
-
+        self.map_jobs = True
 
     def jobs_to_do(self, clientsocket):
-        print(clientsocket)
+
+        # If ready_workers > 0 start!
 
         map_req = json.dumps(dict(task="map_request", blob=self.datastore_q.get()))
-
-        print(map_req)
         clientsocket.sendall(map_req.encode("utf-8"))
+
+        while True:
+
+            # bytes á pedreiro
+            new_msg = clientsocket.recv(58192).decode("utf-8")
+
+            if new_msg:
+                msg = json.loads(new_msg)
+                if msg["task"] == "map_reply" and not self.datastore_q.empty():
+
+                    self.map_responses.put(msg["value"])
+                    map_req = json.dumps(dict(task="map_request", blob=self.datastore_q.get()))
+                    print("Map Reply = ", map_req)
+                    clientsocket.sendall(map_req.encode("utf-8"))
+
+                if msg["task"] == "map_reply" and self.datastore_q.empty():
+
+                    self.map_responses.put(msg["value"])
+                    reduce_req = json.dumps(dict(task="reduce_request", value=(self.map_responses.get())))
+                    print("map_reply and Empty = ", reduce_req)
+                    clientsocket.sendall(reduce_req.encode("utf-8"))
+                    # self.datastore_q.put("MAP PROCESS DONE")
+
+                if msg["task"] == "reduce_reply":
+
+                    self.reduce_responses.put(msg["value"])
+                    reduce_req = json.dumps(dict(task="reduce_request", value=self.map_responses.get()))
+                    print("Reduce Request = ", reduce_req)
+                    clientsocket.sendall(reduce_req.encode("utf-8"))
+            print(new_msg)
+
+            # if self.datastore_q.empty():
+            #     print(list(self.map_responses.queue))
         # clientsocket.sendall(map_req.encode("utf-8"))
-
-
-
 
     def main(self, args):
 
@@ -60,15 +108,11 @@ class Coordinator(object):
                 self.datastore.append(blob)
                 self.datastore_q.put(blob)
 
-
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind(("localhost", args.port))
         self.socket.listen(5)
 
         clientsocket, address = self.socket.accept()
-
-        print(clientsocket)
-        print(address)
 
         json_msg = clientsocket.recv(1024).decode("utf-8")
 
@@ -79,31 +123,6 @@ class Coordinator(object):
                 process_messages.start()
 
 
-        # sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        # sock.bind(("localhost", args.port))
-        # sock.listen(5)
-
-        # message_chunks = []
-        # while True:
-        #     data = clientsocket.recv(1024).decode("utf-8")
-        #     if data:
-        #         msg = json.loads(data)
-        #         if msg["task"] == "register":
-        #             print("NEW WORKER HERE")
-        #             print("Worker id: " + str(msg["id"]))
-        #             # TODO
-        #         if msg["task"] == "map_reply":
-        #             print("NEW MAP_REPLY HERE")
-        #             # TODO
-        #         if msg["task"] == "reduce_reply":
-        #             print("NEW REDUCE_REPLY HERE")
-        #             # TODO
-        #     if not data:
-        #         break
-        #     message_chunks.append(data)
-        #
-        # clientsocket.close()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='MapReduce Coordinator')
