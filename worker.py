@@ -64,13 +64,14 @@ class Worker(object):
         words = []
 
         for w, nr in value:
-            if w.lower() not in words:
-                words.append(w.lower())
-                reduced_list.append((w.lower(), nr))
+            w = w.lower()
+            if w not in words:
+                words.append(w)
+                reduced_list.append((w, nr))
             else:
                 for i in reduced_list:
-                    if i[0].lower() == w.lower():
-                        reduced_list.remove((w.lower(), i[1]))
+                    if i[0] == w:
+                        reduced_list.remove((w, i[1]))
                         nr = nr + i[1]
                 reduced_list.append((w.lower(), nr))
 
