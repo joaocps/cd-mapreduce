@@ -38,6 +38,12 @@ class Worker(object):
             "id": self.id
         })
 
+        # -----------
+        # Bytes padding for msgs
+        # -----------
+
+        self.padding = 0
+
     def handle_map_request(self, blob):
 
         lista = []
@@ -51,6 +57,7 @@ class Worker(object):
             for c in punct:
                 palavra = palavra.strip(c)
             lista_f.append(palavra)
+
             if palavra == '':
                 lista_f.remove(palavra)
         for w in lista_f:
@@ -62,18 +69,18 @@ class Worker(object):
 
         reduced_list = []
         words = []
-
-        for w, nr in value:
-            w = w.lower()
-            if w not in words:
-                words.append(w)
-                reduced_list.append((w, nr))
-            else:
-                for i in reduced_list:
-                    if i[0] == w:
-                        reduced_list.remove((w, i[1]))
-                        nr = nr + i[1]
-                reduced_list.append((w.lower(), nr))
+        for nval in value:
+            for w, nr in nval:
+                w = w.lower()
+                if w not in words:
+                    words.append(w)
+                    reduced_list.append((w, nr))
+                else:
+                    for i in reduced_list:
+                        if i[0] == w:
+                            reduced_list.remove((w, i[1]))
+                            nr = nr + i[1]
+                    reduced_list.append((w.lower(), nr))
 
         return json.dumps(dict(task="reduce_reply", value=reduced_list))
 
@@ -86,25 +93,29 @@ class Worker(object):
 
             while True:
 
-                json_msg = self.sock.recv(18192).decode("utf-8")
+                bytes_size = self.sock.recv(8).decode()
+                xyz = int(bytes_size)
+                json_msg = self.sock.recv(xyz).decode("utf-8")
 
                 if json_msg:
                     print(json_msg)
                     msg = json.loads(json_msg)
                     if msg["task"] == "map_request":
                         map_reply = self.handle_map_request(msg["blob"])
-                        print(map_reply)
-                        self.sock.sendall(map_reply.encode("utf-8"))
+                        # print(map_reply)
+                        size = len(map_reply)
+                        self.sock.sendall((str(size).zfill(8) + map_reply).encode("utf-8"))
                     if msg["task"] == "reduce_request":
                         reduce_reply = self.handle_reduce_request(msg["value"])
                         print(reduce_reply)
-                        self.sock.sendall(reduce_reply.encode("utf-8"))
+                        size = len(reduce_reply)
+                        print(size)
+                        self.sock.sendall((str(size).zfill(8) + reduce_reply).encode("utf-8"))
 
         except socket.error:
             print("Error to connect with Coordinator")
         finally:
             self.sock.close()
-
 
 class Map(object):
     def __init__(self, dic):
@@ -149,16 +160,15 @@ class Reduce(object):
                             nr = nr + i[1]
                     self.final.append((w, nr))
 
-        #print(self.words)
-        #print(self.final)
-        return {"task": "reduce_reply", "value": self.final}
+def main(args):
+    logger.debug('Connecting %d to %s:%d', args.id, args.hostname, args.port)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='MapReduce worker')
+    parser.add_argument('--id', dest='id', type=int, help='worker id', default=0)
     parser.add_argument('--port', dest='port', type=int, help='coordinator port', default=8765)
     parser.add_argument('--hostname', dest='hostname', type=str, help='coordinator hostname', default='localhost')
     args = parser.parse_args()
-    
-    Worker().main(args)
 
+    Worker().main(args)
