@@ -56,7 +56,7 @@ class Coordinator(object):
 
         map_req = json.dumps(dict(task="map_request", blob=self.datastore_q.get()))
         size1 = len(map_req)
-        print(str(size1) + map_req)
+        #print(str(size1) + map_req)
         clientsocket.sendall((str(size1).zfill(8) + map_req).encode("utf-8"))
 
         while True:
@@ -66,49 +66,59 @@ class Coordinator(object):
             new_msg = clientsocket.recv(xyz).decode("utf-8")
 
             if new_msg:
+
                 msg = json.loads(new_msg)
-                # Map replu e o datastore não esta vazio
-                if msg["task"] == "map_reply" and not self.datastore_q.empty():
-                    self.map_responses.put(msg["value"])
-                    map_req = json.dumps(dict(task="map_request", blob=self.datastore_q.get()))
-                    size = len(map_req)
-                    clientsocket.sendall((str(size).zfill(8) + map_req).encode("utf-8"))
-
-                # Map reply e o datastore está vazio
-                if msg["task"] == "map_reply" and self.datastore_q.empty():
-                    self.map_responses.put(msg["value"])
-                    reduce_req = json.dumps(
-                        dict(task="reduce_request", value=(self.map_responses.get(), self.map_responses.get())))
-                    #print("map_reply and Empty = ", reduce_req)
-                    size = len(reduce_req)
-                    clientsocket.sendall((str(size).zfill(8) + reduce_req).encode("utf-8"))
-
-                # Reduce Reply e já recebeu pelo menos um mapa
-                if msg["task"] == "reduce_reply" and not self.map_responses.empty():
-                    self.reduce_responses.put(msg["value"])
-                    reduce_req = json.dumps(
-                        dict(task="reduce_request", value=(self.map_responses.get(), self.map_responses.get())))
-                    #print("Reduce Request = ", reduce_req)
-                    size = len(reduce_req)
-                    clientsocket.send((str(size).zfill(8) + reduce_req).encode("utf-8"))
-
-                # Reduce Reply e já não há mapas
-                if msg["task"] == "reduce_reply" and self.map_responses.empty():
-                    self.reduce_responses.put(msg["value"])
-                    if self.reduce_responses.qsize() > 1:
-                        reduce_req = json.dumps(dict(task="reduce_request",
-                                                     value=(self.reduce_responses.get(), self.reduce_responses.get())))
-                        #print("Reduce Request = ", reduce_req)
-                        size = len(reduce_req)
-                        #print(str(size) + reduce_req)
-                        clientsocket.sendall((str(size).zfill(8) + reduce_req).encode("utf-8"))
-                    else:
-                        print(list(self.reduce_responses.queue))
-
-                if self.reduce_responses.qsize() == 0:
-                    print("FINISHED")
-
                 #print(new_msg)
+                if msg["task"] == "map_reply":
+                    if not self.datastore_q.empty():
+                        self.map_responses.put(msg["value"])
+                        map_req = json.dumps(dict(task="map_request", blob=self.datastore_q.get()))
+                        size = len(map_req)
+                        clientsocket.sendall((str(size).zfill(8) + map_req).encode("utf-8"))
+                    else:
+                        self.map_responses.put(msg["value"])
+                        #print("toda")
+                        #print(list(self.map_responses.queue))
+
+                        reduce_req = json.dumps(dict(task="reduce_request", value=(self.map_responses.get(),
+                                                                                   self.map_responses.get())))
+                        size = len(reduce_req)
+                        clientsocket.sendall((str(size).zfill(8) + reduce_req).encode("utf-8"))
+
+                elif msg["task"] == "reduce_reply":
+                    self.reduce_responses.put(msg["value"])
+
+                    if not self.map_responses.empty():
+                        if self.map_responses.qsize() == 1:
+                            reduce_req = json.dumps(dict(task="reduce_request", value=(self.map_responses.get(),
+                                                                                       self.reduce_responses.get())))
+                            size = len(reduce_req)
+                            clientsocket.send((str(size).zfill(8) + reduce_req).encode("utf-8"))
+
+                        elif self.map_responses.qsize() > 1:
+                            reduce_req = json.dumps(dict(task="reduce_request", value=(self.map_responses.get(),
+                                                                                       self.map_responses.get())))
+                            size = len(reduce_req)
+                            clientsocket.send((str(size).zfill(8) + reduce_req).encode("utf-8"))
+
+                    else:
+                        if self.reduce_responses.qsize() > 1:
+                            reduce_req = json.dumps(dict(task="reduce_request", value=(self.reduce_responses.get(),
+                                                                                       self.reduce_responses.get())))
+                            size = len(reduce_req)
+                            clientsocket.send((str(size).zfill(8) + reduce_req).encode("utf-8"))
+
+                        elif self.reduce_responses.qsize() == 1:
+                            #print(list(self.reduce_responses.queue))
+                            #break
+                            hist = list(self.reduce_responses.queue)
+                            # store final histogram into a CSV file
+                            with args.out as f:
+                                csv_writer = csv.writer(f, delimiter=',',
+                                                        quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                                for l in hist:
+                                    for w, c in l:
+                                        csv_writer.writerow([w, c])
 
     def main(self, args):
 
@@ -141,8 +151,8 @@ class Coordinator(object):
                 process_messages = threading.Thread(target=self.jobs_to_do, args=(clientsocket,))
                 process_messages.start()
 
-
-        hist = []
+        """
+        hist = list(self.reduce_responses.queue)
         # store final histogram into a CSV file
         with args.out as f:
             csv_writer = csv.writer(f, delimiter=',',
@@ -150,7 +160,7 @@ class Coordinator(object):
 
             for w,c in hist:
                 csv_writer.writerow([w,c])
-
+        """
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='MapReduce Coordinator')
