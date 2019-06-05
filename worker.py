@@ -62,7 +62,7 @@ class Worker(object):
                 lista_f.remove(palavra)
         for w in lista_f:
             lista.append((w, 1))
-
+        print(lista)
         return json.dumps(dict(task="map_reply", value=lista))
 
     def handle_reduce_request(self, value):
@@ -81,7 +81,8 @@ class Worker(object):
                             reduced_list.remove((w, i[1]))
                             nr = nr + i[1]
                     reduced_list.append((w.lower(), nr))
-
+        print(reduced_list)
+        print()
         return json.dumps(dict(task="reduce_reply", value=reduced_list))
 
     def main(self, args):
