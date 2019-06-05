@@ -85,7 +85,7 @@ class Worker(object):
                             nr = nr + i[1]
                     reduced_list.append((w.lower(), nr))
         print()
-        print(reduced_list)
+        # print(reduced_list)
         print("------------------------------------------------------------")
         return json.dumps(dict(task="reduce_reply", value=reduced_list))
 
@@ -103,7 +103,6 @@ class Worker(object):
                 json_msg = self.sock.recv(xyz).decode("utf-8")
 
                 if json_msg:
-                    print(json_msg)
                     msg = json.loads(json_msg)
                     if msg["task"] == "map_request":
                         map_reply = self.handle_map_request(msg["blob"])
@@ -114,8 +113,10 @@ class Worker(object):
                         reduce_reply = self.handle_reduce_request(msg["value"])
                         print(reduce_reply)
                         size = len(reduce_reply)
-                        #print(size)
                         self.sock.sendall((str(size).zfill(8) + reduce_reply).encode("utf-8"))
+                    if msg["task"] == "shutdown":
+                        print("JOB COMPLETED WITH SUCCESS! >> SHUTDOWN")
+                        break
 
         except socket.error:
             print("Error to connect with Coordinator")

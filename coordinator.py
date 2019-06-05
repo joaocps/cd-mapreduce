@@ -52,23 +52,22 @@ class Coordinator(object):
     def jobs_to_do(self, clientsocket):
 
         # If ready_workers > 0 start!
-        padding = 0
 
         map_req = json.dumps(dict(task="map_request", blob=self.datastore_q.get()))
         size1 = len(map_req)
-        #print(str(size1) + map_req)
         clientsocket.sendall((str(size1).zfill(8) + map_req).encode("utf-8"))
 
         while True:
 
             bytes_size = clientsocket.recv(8).decode()
             xyz = int(bytes_size)
+
             new_msg = clientsocket.recv(xyz).decode("utf-8")
 
             if new_msg:
 
                 msg = json.loads(new_msg)
-                #print(new_msg)
+                print(new_msg)
                 if msg["task"] == "map_reply":
                     if not self.datastore_q.empty():
                         self.map_responses.put(msg["value"])
@@ -105,12 +104,11 @@ class Coordinator(object):
                         if self.reduce_responses.qsize() > 1:
                             reduce_req = json.dumps(dict(task="reduce_request", value=(self.reduce_responses.get(),
                                                                                        self.reduce_responses.get())))
+                            print(reduce_req)
                             size = len(reduce_req)
                             clientsocket.send((str(size).zfill(8) + reduce_req).encode("utf-8"))
 
                         elif self.reduce_responses.qsize() == 1:
-                            #print(list(self.reduce_responses.queue))
-                            #break
                             hist = list(self.reduce_responses.queue)
                             # store final histogram into a CSV file
                             with args.out as f:
@@ -119,6 +117,11 @@ class Coordinator(object):
                                 for l in hist:
                                     for w, c in l:
                                         csv_writer.writerow([w, c])
+                            shutdown_worker = json.dumps(dict(task="shutdown"))
+                            size = len(shutdown_worker)
+                            clientsocket.send((str(size).zfill(8) + shutdown_worker).encode("utf-8"))
+                            print("JOB COMPLETED WITH SUCCESS!")
+                            break
 
     def main(self, args):
 
