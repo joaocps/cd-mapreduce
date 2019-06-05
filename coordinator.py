@@ -6,6 +6,7 @@ import argparse
 import socket
 import threading
 from queue import Queue
+import locale
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                     datefmt='%m-%d %H:%M:%S')
@@ -109,14 +110,30 @@ class Coordinator(object):
                             clientsocket.send((str(size).zfill(8) + reduce_req).encode("utf-8"))
 
                         elif self.reduce_responses.qsize() == 1:
-                            hist = list(self.reduce_responses.queue)
+
+                            locale.setlocale(locale.LC_COLLATE, "pt_PT.UTF-8")
+                            hist = self.reduce_responses.get()
+                            # print(hist)
+
+                            palavras = []
+                            final = []
+                            for p in hist:
+                                palavras.append(p[0])
+
+                            f = sorted(palavras, key=locale.strxfrm)
+                            #print(f)
+                            for t in f:
+                                for i in hist:
+                                    if i[0] == t:
+                                        final.append(i)
+
                             # store final histogram into a CSV file
                             with args.out as f:
                                 csv_writer = csv.writer(f, delimiter=',',
                                                         quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                                for l in hist:
-                                    for w, c in l:
-                                        csv_writer.writerow([w, c])
+                                for w, c in final:
+                                    csv_writer.writerow([w, c])
+
                             shutdown_worker = json.dumps(dict(task="shutdown"))
                             size = len(shutdown_worker)
                             clientsocket.send((str(size).zfill(8) + shutdown_worker).encode("utf-8"))
