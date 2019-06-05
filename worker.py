@@ -53,7 +53,7 @@ class Worker(object):
 
         lista_f = []
         for palavra in frase:
-            palavra = ''.join(i for i in palavra if not i.isdigit())
+            palavra = ''.join(i for i in palavra if i not in punct and not i.isdigit())
             for c in punct:
                 palavra = palavra.strip(c)
             lista_f.append(palavra)
