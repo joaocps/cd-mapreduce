@@ -1,11 +1,11 @@
 # coding: utf-8
 
-import json
 import logging
 import argparse
 import os
 import socket
 import string
+import json
 
 
 logging.basicConfig(level=logging.DEBUG,format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
@@ -123,51 +123,13 @@ class Worker(object):
         finally:
             self.sock.close()
 
-class Map(object):
-    def __init__(self, dic):
-        self.p = dic["blob"]
-        self.lista = []
 
-    def map(self):
-        punct = list(string.punctuation)
-
-        frase = self.p.split()
-        #print(frase)
-
-        lista_f = []
-        for palavra in frase:
-            for c in punct:
-                palavra = palavra.strip(c)
-                #print(palavra)
-            lista_f.append(palavra)
-        #print(lista_f)
-        for w in lista_f:
-            self.lista.append((w, 1))
-        return {"task": "map_reply", "value": self.lista}
-
-class Reduce(object):
-    def __init__(self, dic):
-        self.listas = dic["value"]
-        self.final = []
-        self.words = []
-    def reduce(self):
-        for l in self.listas:
-            #print(l)
-            for w,nr in l:
-                #print("\nw:" + w + "\nnr: " + str(nr) )
-                if w not in self.words:
-                    self.words.append(w)
-                    self.final.append((w, nr))
-                else:
-                    #print("Encontrei\n " + w + " -> " + str(nr))
-                    for i in self.final:
-                        if i[0] == w:
-                            self.final.remove((w,i[1]))
-                            nr = nr + i[1]
-                    self.final.append((w, nr))
-
-def main(args):
-    logger.debug('Connecting %d to %s:%d', args.id, args.hostname, args.port)
+def tokenizer(text):
+    tokens = text.lower()
+    tokens = tokens.translate(str.maketrans('', '', string.digits))
+    tokens = tokens.translate(str.maketrans('', '', string.punctuation))
+    tokens = tokens.rstrip()
+    return tokens.split()
 
 
 if __name__ == '__main__':

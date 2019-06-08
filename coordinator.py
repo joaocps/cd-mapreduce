@@ -77,8 +77,8 @@ class Coordinator(object):
                         clientsocket.sendall((str(size).zfill(8) + map_req).encode("utf-8"))
                     else:
                         self.map_responses.put(msg["value"])
-                        #print("toda")
-                        #print(list(self.map_responses.queue))
+                        # print("toda")
+                        # print(list(self.map_responses.queue))
 
                         reduce_req = json.dumps(dict(task="reduce_request", value=(self.map_responses.get(),
                                                                                    self.map_responses.get())))
@@ -121,7 +121,7 @@ class Coordinator(object):
                                 palavras.append(p[0])
 
                             f = sorted(palavras, key=locale.strxfrm)
-                            #print(f)
+                            # print(f)
                             for t in f:
                                 for i in hist:
                                     if i[0] == t:
@@ -171,16 +171,6 @@ class Coordinator(object):
                 process_messages = threading.Thread(target=self.jobs_to_do, args=(clientsocket,))
                 process_messages.start()
 
-        """
-        hist = list(self.reduce_responses.queue)
-        # store final histogram into a CSV file
-        with args.out as f:
-            csv_writer = csv.writer(f, delimiter=',',
-            quotechar='"', quoting=csv.QUOTE_MINIMAL)
-
-            for w,c in hist:
-                csv_writer.writerow([w,c])
-        """
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='MapReduce Coordinator')
