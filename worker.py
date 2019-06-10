@@ -124,10 +124,11 @@ class Worker(object):
             self.sock.close()
 
 
-def tokenizer(text):
-    tokens = text.lower()
+def tokenizer(txt):
+    tokens = txt.lower()
     tokens = tokens.translate(str.maketrans('', '', string.digits))
     tokens = tokens.translate(str.maketrans('', '', string.punctuation))
+    tokens = tokens.translate(str.maketrans('', '', '«»'))
     tokens = tokens.rstrip()
     return tokens.split()
 
