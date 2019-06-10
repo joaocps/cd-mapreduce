@@ -7,6 +7,7 @@ import socket
 import threading
 from queue import Queue
 import locale
+import time
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
                     datefmt='%m-%d %H:%M:%S')
@@ -68,7 +69,7 @@ class Coordinator(object):
             if new_msg:
 
                 msg = json.loads(new_msg)
-                print(new_msg)
+                # print(new_msg)
                 if msg["task"] == "map_reply":
                     if not self.datastore_q.empty():
                         self.map_responses.put(msg["value"])
@@ -110,10 +111,10 @@ class Coordinator(object):
                             clientsocket.send((str(size).zfill(8) + reduce_req).encode("utf-8"))
 
                         elif self.reduce_responses.qsize() == 1:
-
+                            print("Job Completed, Waiting for workers to collect words and write file, please wait!")
+                            time.sleep(10)
                             locale.setlocale(locale.LC_COLLATE, "pt_PT.UTF-8")
                             hist = self.reduce_responses.get()
-                            # print(hist)
 
                             palavras = []
                             final = []
@@ -133,12 +134,8 @@ class Coordinator(object):
                                                         quotechar='"', quoting=csv.QUOTE_MINIMAL)
                                 for w, c in final:
                                     csv_writer.writerow([w, c])
+                            print("DONE, Output file created!")
 
-                            shutdown_worker = json.dumps(dict(task="shutdown"))
-                            size = len(shutdown_worker)
-                            clientsocket.send((str(size).zfill(8) + shutdown_worker).encode("utf-8"))
-                            print("JOB COMPLETED WITH SUCCESS!")
-                            break
 
     def main(self, args):
 
@@ -157,19 +154,31 @@ class Coordinator(object):
                 self.datastore.append(blob)
                 self.datastore_q.put(blob)
 
+        n_workers = input("Number of workers to perform the job? ")
+        print("Waiting for Workers...")
+
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind(("localhost", args.port))
         self.socket.listen(5)
 
-        clientsocket, address = self.socket.accept()
+        while len(self.ready_workers) < int(n_workers):
 
-        json_msg = clientsocket.recv(1024).decode("utf-8")
+            clientsocket, address = self.socket.accept()
 
-        if json_msg:
-            msg = json.loads(json_msg)
-            if msg["task"] == "register":
-                process_messages = threading.Thread(target=self.jobs_to_do, args=(clientsocket,))
-                process_messages.start()
+            json_msg = clientsocket.recv(1024).decode("utf-8")
+
+            if json_msg:
+                msg = json.loads(json_msg)
+                if msg["task"] == "register":
+                    self.ready_workers.append(clientsocket)
+                    print("Worker Connected")
+
+        for i in self.ready_workers:
+            process_messages = threading.Thread(target=self.jobs_to_do, args=(i,))
+            process_messages.start()
+
+                    # process_messages = threading.Thread(target=self.jobs_to_do, args=(clientsocket,))
+                    # process_messages.start()
 
 
 if __name__ == '__main__':

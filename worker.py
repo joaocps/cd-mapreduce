@@ -62,9 +62,9 @@ class Worker(object):
                 lista_f.remove(palavra)
         for w in lista_f:
             lista.append((w, 1))
-        print()
-        print(lista)
-        print("------------------------------------------------------")
+        # print()
+        # print(lista)
+        # print("------------------------------------------------------")
 
         return json.dumps(dict(task="map_reply", value=lista))
 
@@ -84,9 +84,9 @@ class Worker(object):
                             reduced_list.remove((w, i[1]))
                             nr = nr + i[1]
                     reduced_list.append((w.lower(), nr))
-        print()
+        # print()
         # print(reduced_list)
-        print("------------------------------------------------------------")
+        # print("------------------------------------------------------------")
         return json.dumps(dict(task="reduce_reply", value=reduced_list))
 
     def main(self, args):
@@ -106,14 +106,18 @@ class Worker(object):
                     msg = json.loads(json_msg)
                     if msg["task"] == "map_request":
                         map_reply = self.handle_map_request(msg["blob"])
-                        # print(map_reply)
+                        logger.debug('Handle Map Request')
+                        print(map_reply)
                         size = len(map_reply)
                         self.sock.sendall((str(size).zfill(8) + map_reply).encode("utf-8"))
+                        logger.debug('Send Map Reply')
                     if msg["task"] == "reduce_request":
                         reduce_reply = self.handle_reduce_request(msg["value"])
+                        logger.debug('Handle Reduce Request')
                         print(reduce_reply)
                         size = len(reduce_reply)
                         self.sock.sendall((str(size).zfill(8) + reduce_reply).encode("utf-8"))
+                        logger.debug('Send Reduce Reply')
                     if msg["task"] == "shutdown":
                         print("JOB COMPLETED WITH SUCCESS! >> SHUTDOWN")
                         break
