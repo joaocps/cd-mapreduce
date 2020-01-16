@@ -1,7 +1,5 @@
+# Project for distributed systems - 2nd year
 # Word Count (Map-Reduce)
-
-## How to run
-
 ## Git Upstream
 
 Keep your fork sync with the upstream
@@ -16,6 +14,10 @@ $ git merge upstream/master
 ## Authors
 
 * **Mário Antunes** - [mariolpantunes](https://github.com/mariolpantunes)
+
+## Contributor
+
+* **João Santos** - [joaocps](https://github.com/joaocps)
 
 ## License
 
